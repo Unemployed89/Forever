@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>The Eternal Registry</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        :root { --gold: #d4af37; --crimson: #a00000; --parchment: #fdfaf6; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+        
+        body { 
+            font-family: 'Georgia', serif; background: #0a0a0a; margin: 0; color: white; 
+            display: flex; flex-direction: column; align-items: center; min-height: 100vh;
+        }
+
+        .screen { display: none; width: 100%; padding: 20px; text-align: center; animation: fadeIn 0.4s; }
+        .active { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+
+        input { 
+            padding: 15px; border: 2px solid var(--gold); border-radius: 12px; 
+            background: rgba(255,255,255,0.1); color: white; width: 85%; 
+            font-size: 1.1rem; text-align: center; margin-bottom: 20px;
+        }
+
+        button { 
+            background: var(--crimson); color: white; border: none; 
+            padding: 15px 30px; border-radius: 50px; font-weight: bold; 
+            width: 80%; margin-top: 10px; box-shadow: 0 4px 15px rgba(160,0,0,0.3);
+        }
+
+        .btn-clear { background: #444; font-size: 0.7rem; padding: 6px; width: 30%; margin-bottom: 5px; border-radius: 5px; border: none; color: white; }
+
+        /* Biometric Sensor */
+        #finger-zone {
+            width: 100px; height: 130px; border: 3px solid var(--gold);
+            border-radius: 50px; margin: 20px auto; position: relative;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(212, 175, 55, 0.1); touch-action: none;
+        }
+        .scan-line {
+            position: absolute; width: 100%; height: 4px; background: #00fff2;
+            top: 0; display: none; animation: scanning 1.5s linear infinite;
+            box-shadow: 0 0 15px #00fff2;
+        }
+        @keyframes scanning { 0% { top: 0; } 100% { top: 100%; } }
+
+        /* Signature Canvas Box */
+        .sig-container { background: #fff; border-radius: 10px; margin: 10px 0; touch-action: none; border: 1.5px solid var(--gold); }
+        canvas { display: block; touch-action: none; }
+
+        /* Certificate Styling */
+        #cert-wrap { padding: 4px; background: white; width: 100%; max-width: 360px; margin-top: 10px; }
+        #certificate { 
+            background: var(--parchment); color: #333; padding: 35px 15px; 
+            border: 8px double var(--gold); text-align: center; position: relative;
+        }
+        .cert-header { font-size: 1.5rem; color: var(--crimson); text-transform: uppercase; margin: 0; letter-spacing: 1px; }
+        .names { font-family: 'Brush Script MT', cursive; font-size: 2.1rem; border-bottom: 1px solid #ddd; margin: 10px 0; min-height: 2.6rem; color: #222; }
+        
+        /* Footer/Signatures */
+        .footer { display: flex; justify-content: space-around; align-items: flex-end; margin-top: 40px; }
+        .sig-box { position: relative; width: 45%; display: flex; flex-direction: column; align-items: center; }
+        
+        .sig-img { width: 100%; border-bottom: 1.5px solid #333; height: 50px; object-fit: contain; z-index: 2; position: relative; background: transparent; }
+        .groom-sig-fixed { font-family: 'Brush Script MT', cursive; font-size: 1.5rem; border-bottom: 1.5px solid #333; width: 100%; z-index: 2; position: relative; }
+        
+        /* THE RED THUMBPRINT SEAL */
+        .thumbprint-seal { 
+            width: 45px; margin-top: 5px; opacity: 0.85; 
+            filter: sepia(1) saturate(10) hue-rotate(-50deg); /* Makes it Red */
+        }
+        
+        .sig-label { font-size: 0.55rem; margin-top: 2px; font-weight: bold; color: #777; text-transform: uppercase; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes scanning { 0% { top: 0; } 100% { top: 100%; } }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+    <div id="screen1" class="screen active">
+        <h1 style="color:var(--gold)">Marriage Registry</h1>
+        <p>Hehehe😺 wifeyyy❤❤ <br>Please enter your full name:</p>
+        <input type="text" id="brideNameInput" placeholder="Full Name" autocomplete="off">
+        <button onclick="goTo(2)">Start Verification</button>
+    </div>
+
+    <div id="screen2" class="screen">
+        <h3>Biometric Scan</h3>
+        <div id="finger-zone" 
+             ontouchstart="handleScanStart(event)" 
+             ontouchend="handleScanEnd(event)" 
+             onmousedown="handleScanStart(event)" 
+             onmouseup="handleScanEnd(event)">
+            <div class="scan-line" id="line"></div>
+            <span style="font-size: 40px;">👆</span>
+        </div>
+        <p id="status">Hold finger to verify</p>
+
+        <div id="sig-section" style="display:none; width: 100%; animation: fadeIn 0.5s;">
+            <p style="color: #4CAF50; font-weight: bold;">✔ Identity Verified</p>
+            <p>Please provide your digital signature:</p>
+            <div class="sig-container">
+                <canvas id="canvas-bride" width="310" height="130"></canvas>
+            </div>
+            <button class="btn-clear" onclick="clearC()">Clear Signature</button>
+            <button onclick="generate()">Finalize Union ❤️</button>
+        </div>
+    </div>
+
+    <div id="screen3" class="screen">
+        <div id="cert-wrap">
+            <div id="certificate">
+                <h2 class="cert-header">Certificate of Marriage</h2>
+                <p style="font-size: 0.8rem; margin: 10px 0;">This document certifies the Marriage of</p>
+                
+                <div class="names">Sagar</div>
+                
+                <div style="font-style:italic; font-size: 0.9rem;">and</div>
+                
+                <div class="names" id="dispBride">Bride Name</div>
+                
+                <p style="font-size:0.6rem; margin-top: 15px;">Witnessed on this day:<br><b id="date"></b></p>
+                
+                <div class="footer">
+                    <div class="sig-box">
+                        <div class="groom-sig-fixed">Sagar</div>
+                        <img src="https://cdn-icons-png.flaticon.com/512/2619/2619082.png" class="thumbprint-seal">
+                        <div class="sig-label">GROOM</div>
+                    </div>
+                    <div class="sig-box">
+                        <img id="finalSigBride" class="sig-img">
+                        <img src="https://cdn-icons-png.flaticon.com/512/2619/2619082.png" class="thumbprint-seal">
+                        <div class="sig-label">BRIDE</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <button onclick="download()">Download Official Copy 💍</button>
+    </div>
+
+    <script>
+        let scanTimer;
+        const canvas = document.getElementById('canvas-bride');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+
+        function goTo(n) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById('screen'+n).classList.add('active');
+        }
+
+        function handleScanStart(e) {
+            e.preventDefault();
+            document.getElementById('line').style.display = 'block';
+            document.getElementById('status').innerText = "Analyzing Biometrics...";
+            scanTimer = setTimeout(() => {
+                document.getElementById('line').style.display = 'none';
+                document.getElementById('sig-section').style.display = 'block';
+                document.getElementById('finger-zone').style.background = 'rgba(0, 255, 0, 0.2)';
+                document.getElementById('status').style.display = 'none';
+                window.scrollTo(0, document.body.scrollHeight);
+            }, 2000);
+        }
+
+        function handleScanEnd(e) { if (scanTimer && document.getElementById('sig-section').style.display !== 'block') { clearTimeout(scanTimer); document.getElementById('line').style.display = 'none'; document.getElementById('status').innerText = "Hold longer!"; } }
+
+        // Signature Logic
+        const getP = (e) => { const r = canvas.getBoundingClientRect(); const t = e.touches ? e.touches[0] : e; return { x: t.clientX - r.left, y: t.clientY - r.top }; };
+        const start = (e) => { e.preventDefault(); isDrawing = true; const p = getP(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
+        const move = (e) => { if (!isDrawing) return; e.preventDefault(); const p = getP(e); ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineTo(p.x, p.y); ctx.stroke(); };
+        
+        canvas.addEventListener('touchstart', start, {passive: false}); canvas.addEventListener('touchmove', move, {passive: false});
+        window.addEventListener('touchend', () => isDrawing = false);
+        canvas.addEventListener('mousedown', start); canvas.addEventListener('mousemove', move);
+
+        function clearC() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+
+        function generate() {
+            document.getElementById('dispBride').innerText = document.getElementById('brideNameInput').value || "My Queen";
+            document.getElementById('date').innerText = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById('finalSigBride').src = canvas.toDataURL();
+            goTo(3);
+            confetti({ particleCount: 150, spread: 70, origin: { y: 0.8 }, colors: ['#d4af37', '#a00000', '#ffffff'] });
+        }
+
+        function download() {
+            const b = event.target; b.innerText = "Processing File...";
+            html2canvas(document.querySelector("#cert-wrap"), {scale:3, useCORS: true}).then(cv => {
+                const link = document.createElement('a');
+                link.download = 'Union_Certificate.png';
+                link.href = cv.toDataURL("image/png");
+                link.click();
+                b.innerText = "Saved to Gallery! ❤️";
+            });
+        }
+    </script>
+</body>
+</html>
